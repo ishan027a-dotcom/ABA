@@ -10,7 +10,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is Online with Local Time Sync!"
+    return "Aries Bot is Online & Secure!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -21,8 +21,9 @@ def keep_alive():
     t.start()
 
 # --- BOT CONFIGURATION ---
-# Replace with your newly reset token
-TOKEN = "MTQ3MjkwODE3MjczMjY2NTg1Nw.Gd4-sj.RM_jIcoGU1Kme9Kz7T8OtxioktnnrQ_kaqzF8Q" 
+# IMPORTANT: Token ab environment variable se aayega
+TOKEN = os.getenv("DISCORD_TOKEN") 
+
 TARGET_SERVER_ID = 770004215678369883
 TARGET_CHANNEL_ID = 1426247870495068343
 
@@ -39,6 +40,7 @@ bot = AriesBot()
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as: {bot.user}')
+    print('🔒 Security: Token loaded from Environment Variables')
     print('⏰ Time Sync: Using Discord Dynamic Timestamps')
 
 @bot.event
@@ -49,8 +51,8 @@ async def on_message(message):
 
     content = message.content.lower().strip()
     user = message.author
-    now = datetime.utcnow() # Internal calculation in UTC
-    timestamp = int(now.timestamp()) # Unix format for Discord
+    now = datetime.utcnow() 
+    timestamp = int(now.timestamp()) 
 
     # --- ONLINE TRIGGER ---
     if content == "online":
@@ -64,7 +66,6 @@ async def on_message(message):
                 description=f"✅ {user.mention} has started their session.",
                 color=0x2ecc71
             )
-            # Discord magic: <t:timestamp:t> shows short time (e.g. 5:30 PM) based on user's device
             embed.add_field(name="Login Time", value=f"🕒 <t:{timestamp}:t>")
             embed.set_thumbnail(url=user.display_avatar.url)
             await message.channel.send(embed=embed)
@@ -101,7 +102,27 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+# --- ADMIN LIST COMMAND ---
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def list(ctx):
+    if not bot.active_sessions:
+        await ctx.send("Empty list: No users are currently online.")
+        return
+
+    embed = discord.Embed(title="👥 Current Online Members", color=0x3498db)
+    user_list = ""
+    for user_id, start_time in bot.active_sessions.items():
+        user = ctx.guild.get_member(user_id)
+        name = user.display_name if user else f"User ID: {user_id}"
+        user_list += f"• **{name}** (Started: <t:{int(start_time.timestamp())}:R>)\n"
+
+    embed.add_field(name="Active Sessions", value=user_list, inline=False)
+    await ctx.send(embed=embed)
+
 if __name__ == "__main__":
     keep_alive()
-    bot.run(TOKEN)
-            
+    if TOKEN:
+        bot.run(TOKEN)
+    else:
+        print("❌ ERROR: DISCORD_TOKEN is missing in Render settings!")
