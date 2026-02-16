@@ -5,15 +5,14 @@ import os
 from flask import Flask
 from threading import Thread
 
-# --- RENDER PORT FIX (KEEP ALIVE) ---
+# --- RENDER PORT FIX ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Aries Bot is Online!"
+    return "Bot is Online with Local Time Sync!"
 
 def run_flask():
-    # Render default port 8080 use karta hai
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
@@ -22,7 +21,7 @@ def keep_alive():
     t.start()
 
 # --- BOT CONFIGURATION ---
-# IMPORTANT: Use your actual Token here
+# Replace with your newly reset token
 TOKEN = "MTQ3MjkwODE3MjczMjY2NTg1Nw.Gd4-sj.RM_jIcoGU1Kme9Kz7T8OtxioktnnrQ_kaqzF8Q" 
 TARGET_SERVER_ID = 770004215678369883
 TARGET_CHANNEL_ID = 1426247870495068343
@@ -34,14 +33,13 @@ class AriesBot(commands.Bot):
         intents.message_content = True 
         super().__init__(command_prefix="!", intents=intents)
         self.active_sessions = {}
-        self.start_time = datetime.now()
 
 bot = AriesBot()
 
 @bot.event
 async def on_ready():
     print(f'✅ Logged in as: {bot.user}')
-    print(f'🛡️ Secured for Server: {TARGET_SERVER_ID}')
+    print('⏰ Time Sync: Using Discord Dynamic Timestamps')
 
 @bot.event
 async def on_message(message):
@@ -51,8 +49,8 @@ async def on_message(message):
 
     content = message.content.lower().strip()
     user = message.author
-    now = datetime.now()
-    time_str = now.strftime("%I:%M %p")
+    now = datetime.utcnow() # Internal calculation in UTC
+    timestamp = int(now.timestamp()) # Unix format for Discord
 
     # --- ONLINE TRIGGER ---
     if content == "online":
@@ -66,7 +64,8 @@ async def on_message(message):
                 description=f"✅ {user.mention} has started their session.",
                 color=0x2ecc71
             )
-            embed.add_field(name="Login Time", value=f"🕒 `{time_str}`")
+            # Discord magic: <t:timestamp:t> shows short time (e.g. 5:30 PM) based on user's device
+            embed.add_field(name="Login Time", value=f"🕒 <t:{timestamp}:t>")
             embed.set_thumbnail(url=user.display_avatar.url)
             await message.channel.send(embed=embed)
         else:
@@ -90,8 +89,8 @@ async def on_message(message):
                 description=f"🔴 {user.mention} has ended their session.",
                 color=0xe74c3c
             )
-            embed.add_field(name="Logged In", value=start_time.strftime("%I:%M %p"), inline=True)
-            embed.add_field(name="Logged Out", value=time_str, inline=True)
+            embed.add_field(name="Logged In", value=f"<t:{int(start_time.timestamp())}:t>", inline=True)
+            embed.add_field(name="Logged Out", value=f"<t:{timestamp}:t>", inline=True)
             embed.add_field(name="Total Session", value=f"⏳ `{duration_str}`", inline=False)
             embed.set_thumbnail(url=user.display_avatar.url)
             
@@ -102,22 +101,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# --- INSPECTION COMMAND ---
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def inspect(ctx):
-    uptime = datetime.now() - bot.start_time
-    latency = round(bot.latency * 1000)
-    embed = discord.Embed(title="🔍 Bot Health Inspection", color=0xf1c40f)
-    embed.add_field(name="Status", value="🟢 Online", inline=True)
-    embed.add_field(name="Ping", value=f"`{latency}ms`", inline=True)
-    embed.add_field(name="Active Users", value=f"`{len(bot.active_sessions)}`", inline=True)
-    await ctx.send(embed=embed)
-
-# --- START BOT ---
 if __name__ == "__main__":
-    keep_alive() # Flask server starts here
-    try:
-        bot.run(TOKEN)
-    except discord.errors.LoginFailure:
-        print("❌ Error: Invalid Token. Please reset your token in Discord Developer Portal.")
+    keep_alive()
+    bot.run(TOKEN)
+            
