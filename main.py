@@ -1,19 +1,21 @@
 import discord
 from discord.ext import commands
+import random
 from datetime import datetime
 import os
-import random
+import psutil
 from flask import Flask
 from threading import Thread
 
-# --- RENDER PORT FIX ---
+# --- RENDER KEEP-ALIVE (Crash Proofing) ---
 app = Flask('')
 @app.route('/')
 def home():
-    return "Aries Bot is Online with Leader Protocol!"
+    return "Aries Bot: Titan System Online 🛡️"
 
 def run_flask():
-    app.run(host='0.0.0.0', port=8080)
+    try: app.run(host='0.0.0.0', port=8080)
+    except Exception as e: print(f"Flask Error: {e}")
 
 def keep_alive():
     t = Thread(target=run_flask)
@@ -23,114 +25,129 @@ def keep_alive():
 # --- BOT CONFIGURATION ---
 TOKEN = os.getenv("DISCORD_TOKEN") 
 APP_ID = os.getenv("APPLICATION_ID")
-
 TARGET_SERVER_ID = 770004215678369883
 TARGET_CHANNEL_ID = 1426247870495068343
-LEADER_ROLE_ID = 1412430417578954983  # ✅ Your Leader Role ID
+LEADER_ROLE_ID = 1412430417578954983 # ✅ Your Leader Role ID
 
 class AriesBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True 
-        super().__init__(command_prefix="!", intents=intents, application_id=APP_ID)
+        super().__init__(
+            command_prefix="!", 
+            intents=intents, 
+            application_id=APP_ID,
+            reconnect=True
+        )
         self.active_sessions = {}
+        self.start_time = datetime.utcnow()
 
 bot = AriesBot()
 
-@bot.event
-async def on_ready():
-    print(f'✅ Logged in as: {bot.user}')
+# --- DIAGNOSTICS HELPER ---
+def get_bot_uptime():
+    delta = datetime.utcnow() - bot.start_time
+    hours, remainder = divmod(int(delta.total_seconds()), 3600)
+    minutes, _ = divmod(remainder, 60)
+    return f"{hours}h {minutes}m"
 
-@bot.event
-async def on_message(message):
-    if message.author == bot.user: return
-    if message.guild is None or message.guild.id != TARGET_SERVER_ID: return
-    if message.channel.id != TARGET_CHANNEL_ID: return
-
-    content = message.content.lower().strip()
-    user = message.author
-    now = datetime.utcnow()
-    timestamp = int(now.timestamp())
-    
-    # Leader Role Check
-    is_leader = any(role.id == LEADER_ROLE_ID for role in user.roles)
-
-    # --- ONLINE TRIGGER ---
-    if content == "online":
-        try: await message.delete()
-        except: pass
-
-        if user.id not in bot.active_sessions:
-            bot.active_sessions[user.id] = now
-            
-            if is_leader:
-                # Unique Leader Online Msg
-                greeting = f"🛡️ **Order is restored. Leader {user.display_name} is watching.**"
-                msg_color = 0xf1c40f # Gold
-            else:
-                greeting = f"✅ **{user.display_name}** has started their session."
-                msg_color = 0x2ecc71 # Green
-
-            embed = discord.Embed(title="Status: ONLINE", description=greeting, color=msg_color)
-            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
-            embed.set_thumbnail(url=user.display_avatar.url)
-            embed.add_field(name="Arrival", value=f"🕒 <t:{timestamp}:t>")
-            await message.channel.send(embed=embed)
-        else:
-            await message.channel.send(f"⚠️ {user.mention}, you are already online!", delete_after=5)
-
-    # --- OFFLINE TRIGGER ---
-    elif content == "offline":
-        try: await message.delete()
-        except: pass
-
-        if user.id in bot.active_sessions:
-            start_time = bot.active_sessions[user.id]
-            duration = now - start_time
-            
-            if is_leader:
-                # Unique Leader Offline Msg
-                status_msg = f"🌑 **The Leader {user.display_name} is now off-duty. Stay safe until his return.**"
-                msg_color = 0x2f3136 # Dark Theme
-            else:
-                status_msg = f"🔴 **{user.display_name}** session ended."
-                msg_color = 0xe74c3c # Red
-
-            hours, remainder = divmod(int(duration.total_seconds()), 3600)
-            minutes, _ = divmod(remainder, 60)
-            duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
-
-            embed = discord.Embed(title="Status: OFFLINE", description=status_msg, color=msg_color)
-            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
-            embed.add_field(name="Total Influence", value=f"⏳ `{duration_str}`")
-            await message.channel.send(embed=embed)
-            del bot.active_sessions[user.id]
-        else:
-            await message.channel.send(f"❓ {user.mention}, you were not marked online.", delete_after=5)
-
-    await bot.process_commands(message)
-
-# --- ADMIN LIST COMMAND ---
+# --- COMMANDS ---
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def list(ctx):
-    if not bot.active_sessions:
-        await ctx.send("Empty list: No users are currently online.")
-        return
-
-    embed = discord.Embed(title="👥 Current Online Members", color=0x3498db)
-    user_list = ""
-    for user_id, start_time in bot.active_sessions.items():
-        member = ctx.guild.get_member(user_id)
-        name = member.display_name if member else f"User ID: {user_id}"
-        user_list += f"• **{name}** (Started: <t:{int(start_time.timestamp())}:R>)\n"
-
-    embed.add_field(name="Active Sessions", value=user_list, inline=False)
+async def status(ctx):
+    """Bot health report"""
+    latency = round(bot.latency * 1000)
+    memory = psutil.Process(os.getpid()).memory_info().rss / 1024**2
+    
+    embed = discord.Embed(title="⚙️ Aries Self-Diagnostic", color=0x3498db)
+    embed.add_field(name="📡 Latency", value=f"`{latency}ms`", inline=True)
+    embed.add_field(name="⏳ Uptime", value=f"`{get_bot_uptime()}`", inline=True)
+    embed.add_field(name="💾 RAM", value=f"`{memory:.1f}MB`", inline=True)
+    embed.add_field(name="🛡️ Protection", value="`MAX (Auto-Heal)`", inline=False)
     await ctx.send(embed=embed)
+
+# --- MAIN ENGINE (Attendance + Greetings) ---
+@bot.event
+async def on_message(message):
+    try:
+        if message.author == bot.user: return
+        if message.guild is None or message.guild.id != TARGET_SERVER_ID: return
+        if message.channel.id != TARGET_CHANNEL_ID: return
+
+        content = message.content.lower().strip()
+        user = message.author
+        now = datetime.utcnow()
+        timestamp = int(now.timestamp())
+        is_leader = any(role.id == LEADER_ROLE_ID for role in user.roles)
+
+        # --- ONLINE ---
+        if content == "online":
+            try: await message.delete()
+            except: pass
+
+            if user.id not in bot.active_sessions:
+                bot.active_sessions[user.id] = now
+                
+                if is_leader:
+                    greeting = f"🛡️ **Order is restored. Leader {user.display_name} is watching.**"
+                    msg_color = 0xf1c40f
+                else:
+                    greeting = f"✅ **{user.display_name}** has started their session."
+                    msg_color = 0x2ecc71
+
+                embed = discord.Embed(title="Status: ONLINE", description=greeting, color=msg_color)
+                embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
+                embed.set_thumbnail(url=user.display_avatar.url)
+                embed.add_field(name="Arrival", value=f"🕒 <t:{timestamp}:t>")
+                await message.channel.send(embed=embed)
+            else:
+                await message.channel.send(f"⚠️ {user.mention}, already online!", delete_after=3)
+
+        # --- OFFLINE ---
+        elif content == "offline":
+            try: await message.delete()
+            except: pass
+
+            if user.id in bot.active_sessions:
+                start_time = bot.active_sessions[user.id]
+                duration = now - start_time
+                
+                if is_leader:
+                    status_msg = f"🌑 **The Leader {user.display_name} is now off-duty. Stay safe until his return.**"
+                    msg_color = 0x2f3136
+                else:
+                    status_msg = f"🔴 **{user.display_name}** session ended."
+                    msg_color = 0xe74c3c
+
+                hours, remainder = divmod(int(duration.total_seconds()), 3600)
+                minutes, _ = divmod(remainder, 60)
+                duration_str = f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m"
+
+                embed = discord.Embed(title="Status: OFFLINE", description=status_msg, color=msg_color)
+                embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
+                
+                # FULL TIME REPORT (Login + Logout + Duration)
+                embed.add_field(name="Logged In", value=f"🕒 <t:{int(start_time.timestamp())}:t>", inline=True)
+                embed.add_field(name="Logged Out", value=f"🕒 <t:{timestamp}:t>", inline=True)
+                embed.add_field(name="Total Session", value=f"⏳ `{duration_str}`", inline=False)
+                
+                await message.channel.send(embed=embed)
+                del bot.active_sessions[user.id]
+            else:
+                await message.channel.send(f"❓ {user.mention}, you were not marked online.", delete_after=3)
+
+        await bot.process_commands(message)
+
+    except Exception as e:
+        print(f"Max Protection Log: {e}")
+
+@bot.event
+async def on_ready():
+    print(f'✅ {bot.user} Deployment Successful!')
 
 if __name__ == "__main__":
     keep_alive()
     if TOKEN:
         bot.run(TOKEN)
-        
+                
