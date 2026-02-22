@@ -68,37 +68,15 @@ async def on_message(message):
 
     is_leader = any(role.id == LEADER_ROLE_ID for role in user.roles)
 
-# ---------------- ONLINE ---------------- #
+ # -------- ALREADY ONLINE CHECK -------- #
+    if user.id in active_sessions:
 
-    if content == "online":
+        warn = await message.channel.send(
+            f"⚠️ {user.mention} You are already marked ONLINE"
+        )
 
-        try:
-            await message.delete()
-        except:
-            pass
-
-        if user.id not in active_sessions:
-
-            active_sessions[user.id] = now
-
-            if is_leader:
-                desc = f"🛡️ Leader **{user.mention}** is watching."
-                color = 0xf1c40f
-            else:
-                desc = f"✅ **{user.mention}** has started their session."
-                color = 0x2ecc71
-
-            embed = discord.Embed(
-                title="Status: ONLINE",
-                description=desc,
-                color=color
-            )
-
-            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
-            embed.set_thumbnail(url=user.display_avatar.url)
-            embed.add_field(name="Arrival", value=f"<t:{timestamp}:t>")
-
-            await message.channel.send(embed=embed)
+        await warn.delete(delay=3)
+        return
 
 # ---------------- OFFLINE ---------------- #
 
