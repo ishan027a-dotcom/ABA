@@ -85,7 +85,7 @@ async def on_message(message):
                 desc = f"🛡️ Leader {user.display_name} is watching."
                 color = 0xf1c40f
             else:
-                desc = f"✅ **@{user.display_name}** has started their session."
+                desc = f"✅ **@{user.name}** has started their session."
                 color = 0x2ecc71
 
             embed = discord.Embed(
