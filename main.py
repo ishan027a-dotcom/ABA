@@ -82,7 +82,7 @@ async def on_message(message):
             active_sessions[user.id] = now
 
             if is_leader:
-                desc = f"🛡️ Leader {user.display_name} is watching."
+                desc = f"🛡️ Leader **{user.mention}** is watching."
                 color = 0xf1c40f
             else:
                 desc = f"✅ **{user.mention}** has started their session."
@@ -119,10 +119,10 @@ async def on_message(message):
             duration_str = f"{hours}h {minutes}m" if hours else f"{minutes}m"
 
             if is_leader:
-                desc = f"🌑 Leader {user.display_name} is now off-duty."
+                desc = f"🌑 Leader **{user.mention}** is now off-duty."
                 color = 0x2f3136
             else:
-                desc = f"🔴 {user.display_name} session ended."
+                desc = f"🔴 **{user.mention}** session ended."
                 color = 0xe74c3c
 
             embed = discord.Embed(
