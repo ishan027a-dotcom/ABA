@@ -14,7 +14,7 @@ def home():
     return "Aries Bot: Titan System Online 🛡️"
 
 def run_flask():
-    try: app.run(host='0.0.0.0', port=8080)
+    try: app.run(host='0.0.0.0', port=10000)
     except Exception as e: print(f"Flask Error: {e}")
 
 def keep_alive():
