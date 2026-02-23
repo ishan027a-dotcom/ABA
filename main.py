@@ -134,7 +134,7 @@ async def on_message(message):
         duration_str = f"{hours}h {minutes}m" if hours else f"{minutes}m"
 
         if is_leader:
-            desc = f"🌑 Leader **{user.mention}** is now off-duty."
+            desc = f"🌑 **Leader** **{user.mention}** is offline — **<@&1018171797126004827>** take charge, **Aries Citizen 🪪** stay active, track the leaderboard, and hold our clan position."
             color = 0x2f3136
         else:
             desc = f"🔴 **{user.mention}** session ended."
