@@ -28,6 +28,7 @@ APP_ID = os.getenv("APPLICATION_ID")
 TARGET_SERVER_ID = 770004215678369883
 TARGET_CHANNEL_ID = 1426247870495068343
 LEADER_ROLE_ID = 1412430417578954983
+EXECUTIVE_ROLE_ID = 1470987517380526110 # Added Executive ID
 
 intents = discord.Intents.default()
 intents.members = True
@@ -67,6 +68,7 @@ async def on_message(message):
     timestamp = int(now.timestamp())
 
     is_leader = any(role.id == LEADER_ROLE_ID for role in user.roles)
+    is_executive = any(role.id == EXECUTIVE_ROLE_ID for role in user.roles)
 
 # ================= ONLINE ================= #
 
@@ -92,6 +94,9 @@ async def on_message(message):
         if is_leader:
             desc = f"🛡️ Leader **{user.mention}** is watching."
             color = 0xf1c40f
+        elif is_executive:
+            desc = f"🚨 **Angry Bird Alert!** Vigilance at peak. Highest-Level Moderation Activated"
+            color = 0x3498db
         else:
             desc = f"✅ **{user.mention}** has started their session."
             color = 0x2ecc71
@@ -136,6 +141,9 @@ async def on_message(message):
         if is_leader:
             desc = f"🌑 **Leader** **{user.mention}** is offline — **<@&1018171797126004827>** take charge, **Aries Citizen 🪪** stay active, track the leaderboard, and hold our clan position."
             color = 0x2f3136
+        elif is_executive:
+            desc = f"🚨 **{user.mention}** is offline. Silent watch continues 🐦."
+            color = 0x7f8c8d
         else:
             desc = f"🔴 **{user.mention}** session ended."
             color = 0xe74c3c
