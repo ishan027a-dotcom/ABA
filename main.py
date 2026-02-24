@@ -163,8 +163,6 @@ async def on_message(message):
 
         del active_sessions[user.id]
 
-    await bot.process_commands(message)
-
 # ---------------- RUN ---------------- #
 
 keep_alive()
